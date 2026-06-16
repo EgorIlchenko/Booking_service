@@ -7,6 +7,13 @@ from app.config import Settings, get_settings
 from app.db import create_engine, create_session_factory
 from app.repositories.base import BookingRepository
 from app.repositories.sqlalchemy import SQLAlchemyBookingRepository
+from app.services.booking import (
+    BookingConfirmationQueue,
+    BookingService,
+    ConfirmationGateway,
+)
+from app.worker.confirmation import RandomConfirmationGateway
+from app.worker.queue import TaskiqConfirmationQueue
 
 
 class AppProvider(Provider):
@@ -47,6 +54,18 @@ class AppProvider(Provider):
         """
         return create_session_factory(engine)
 
+    @provide(scope=Scope.APP)
+    def confirmation(self, settings: Settings) -> ConfirmationGateway:
+        """Создаёт внешний сервис подтверждения брони.
+
+        Args:
+            settings: Настройки приложения с вероятностью сбоя.
+
+        Returns:
+            Реализация порта подтверждения.
+        """
+        return RandomConfirmationGateway(failure_rate=settings.FAILURE_RATE)
+
     @provide(scope=Scope.REQUEST)
     async def session(
         self, session_factory: async_sessionmaker[AsyncSession]
@@ -65,6 +84,8 @@ class AppProvider(Provider):
     repository = provide(
         SQLAlchemyBookingRepository, scope=Scope.REQUEST, provides=BookingRepository
     )
+    queue = provide(TaskiqConfirmationQueue, scope=Scope.APP, provides=BookingConfirmationQueue)
+    service = provide(BookingService, scope=Scope.REQUEST)
 
 
 def create_container() -> AsyncContainer:

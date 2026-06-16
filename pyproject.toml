@@ -6,7 +6,6 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
-    "celery[redis]>=5.6.3",
     "dishka>=1.10.1",
     "fastapi>=0.137.1",
     "fastapi-limiter>=0.2.0",
@@ -14,6 +13,8 @@ dependencies = [
     "redis>=6.4.0",
     "sqlalchemy[asyncio]>=2.0.51",
     "structlog>=26.1.0",
+    "taskiq>=0.12.4",
+    "taskiq-redis>=1.1.2",
     "uuid6>=2025.0.1",
     "uvicorn[standard]>=0.49.0",
 ]
