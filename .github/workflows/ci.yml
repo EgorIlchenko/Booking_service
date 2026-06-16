@@ -20,6 +20,9 @@ jobs:
       - name: Установка зависимостей
         run: uv sync --all-groups
 
+      - name: Подготовка .env
+        run: cp .env.example .env
+
       - name: Ruff — линт
         run: uv run ruff check .
 
