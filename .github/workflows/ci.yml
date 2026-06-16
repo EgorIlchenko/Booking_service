@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Установка uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установка зависимостей
+        run: uv sync --all-groups
+
+      - name: Ruff — линт
+        run: uv run ruff check .
+
+      - name: Ruff — формат
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        run: uv run mypy
