@@ -1,10 +1,12 @@
 from collections.abc import AsyncIterator
 
 from dishka import AsyncContainer, Provider, Scope, make_async_container, provide
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.config import Settings, get_settings
 from app.db import create_engine, create_session_factory
+from app.rate_limit import RedisRateLimiter
 from app.repositories.base import BookingRepository
 from app.repositories.sqlalchemy import SQLAlchemyBookingRepository
 from app.services.booking import (
@@ -65,6 +67,37 @@ class AppProvider(Provider):
             Реализация порта подтверждения.
         """
         return RandomConfirmationGateway(failure_rate=settings.FAILURE_RATE)
+
+    @provide(scope=Scope.APP)
+    async def redis(self, settings: Settings) -> AsyncIterator[Redis]:
+        """Создаёт клиент Redis и закрывает его при остановке.
+
+        Args:
+            settings: Настройки приложения с адресом Redis.
+
+        Yields:
+            Async-клиент Redis.
+        """
+        client: Redis = Redis.from_url(url=settings.redis_url)
+        yield client
+        await client.aclose()
+
+    @provide(scope=Scope.APP)
+    def rate_limiter(self, settings: Settings, redis: Redis) -> RedisRateLimiter:
+        """Создаёт лимитер запросов на Redis.
+
+        Args:
+            settings: Настройки приложения с параметрами лимита.
+            redis: Клиент Redis.
+
+        Returns:
+            Лимитер запросов.
+        """
+        return RedisRateLimiter(
+            redis=redis,
+            times=settings.RATE_LIMIT_TIMES,
+            seconds=settings.RATE_LIMIT_SECONDS,
+        )
 
     @provide(scope=Scope.REQUEST)
     async def session(
