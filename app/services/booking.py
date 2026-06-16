@@ -7,9 +7,11 @@ import structlog
 from app.domain.models import Booking, BookingStatus
 from app.domain.schemas import BookingCreate
 from app.exceptions import BookingNotCancellable, BookingNotFound
+from app.logging import NOTIFICATIONS_LOGGER
 from app.repositories.base import BookingRepository
 
 logger = structlog.get_logger(__name__)
+notification_logger = structlog.get_logger(NOTIFICATIONS_LOGGER)
 
 
 class BookingConfirmationQueue(Protocol):
@@ -73,7 +75,16 @@ class BookingService:
         )
         await self._repository.add(booking=booking)
         await self._repository.commit()
-        await self._queue.enqueue(booking_id=booking.id)
+        logger.info(
+            "booking_created",
+            booking_id=str(booking.id),
+            service_type=booking.service_type.value,
+        )
+        try:
+            await self._queue.enqueue(booking_id=booking.id)
+        except Exception:
+            logger.exception("enqueue_failed", booking_id=str(booking.id))
+            raise
         return booking
 
     async def get(self, booking_id: UUID) -> Booking:
@@ -129,6 +140,7 @@ class BookingService:
             raise BookingNotCancellable(booking_id=booking_id)
         await self._repository.delete(booking=booking)
         await self._repository.commit()
+        logger.info("booking_cancelled", booking_id=str(booking_id))
 
     async def process(self, booking_id: UUID) -> None:
         """Подтверждает бронь в фоне.
@@ -142,7 +154,13 @@ class BookingService:
 
         if self._confirmation.confirm():
             booking.status = BookingStatus.CONFIRMED
-            logger.info("booking_confirmed", booking_id=str(booking.id), name=booking.name)
+            logger.info("booking_confirmed", booking_id=str(booking.id))
+            notification_logger.info(
+                "notification_sent",
+                booking_id=str(booking.id),
+                name=booking.name,
+                service_type=booking.service_type.value,
+            )
         else:
             booking.status = BookingStatus.FAILED
             logger.warning("booking_failed", booking_id=str(booking.id))

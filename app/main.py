@@ -5,9 +5,12 @@ from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 
 from app.api.errors import register_exception_handlers
+from app.api.middleware import RequestLoggingMiddleware
 from app.api.v1.bookings import router as bookings_router
 from app.api.v1.health import router as health_router
+from app.config import get_settings
 from app.ioc import create_container
+from app.logging import configure_logging
 from app.worker.broker import broker
 
 
@@ -17,6 +20,7 @@ def create_app() -> FastAPI:
     Returns:
         Готовое приложение.
     """
+    configure_logging(level=get_settings().LOG_LEVEL)
     container = create_container()
 
     @asynccontextmanager
@@ -28,6 +32,7 @@ def create_app() -> FastAPI:
         await container.close()
 
     app = FastAPI(title="Booking Service", version="1.0.0", lifespan=lifespan)
+    app.add_middleware(RequestLoggingMiddleware)
     setup_dishka(container, app)
     register_exception_handlers(app)
     app.include_router(health_router)
