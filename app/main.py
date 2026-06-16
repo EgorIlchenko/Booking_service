@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from dishka import AsyncContainer
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 
@@ -14,14 +15,18 @@ from app.logging import configure_logging
 from app.worker.broker import broker
 
 
-def create_app() -> FastAPI:
+def create_app(container: AsyncContainer | None = None) -> FastAPI:
     """Собирает и настраивает приложение FastAPI.
+
+    Args:
+        container: Готовый DI-контейнер. Если не задан — создаётся боевой;
+            тесты передают сюда контейнер с подменёнными зависимостями.
 
     Returns:
         Готовое приложение.
     """
     configure_logging(level=get_settings().LOG_LEVEL)
-    container = create_container()
+    container = container or create_container()
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
