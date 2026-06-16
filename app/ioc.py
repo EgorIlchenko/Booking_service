@@ -1,0 +1,76 @@
+from collections.abc import AsyncIterator
+
+from dishka import AsyncContainer, Provider, Scope, make_async_container, provide
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+
+from app.config import Settings, get_settings
+from app.db import create_engine, create_session_factory
+from app.repositories.base import BookingRepository
+from app.repositories.sqlalchemy import SQLAlchemyBookingRepository
+
+
+class AppProvider(Provider):
+    """Провайдеры зависимостей приложения."""
+
+    @provide(scope=Scope.APP)
+    def settings(self) -> Settings:
+        """Возвращает настройки приложения.
+
+        Returns:
+            Настройки приложения.
+        """
+        return get_settings()
+
+    @provide(scope=Scope.APP)
+    async def engine(self, settings: Settings) -> AsyncIterator[AsyncEngine]:
+        """Создаёт движок БД и закрывает его при остановке.
+
+        Args:
+            settings: Настройки приложения.
+
+        Yields:
+            Async-движок SQLAlchemy.
+        """
+        engine = create_engine(settings)
+        yield engine
+        await engine.dispose()
+
+    @provide(scope=Scope.APP)
+    def session_factory(self, engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+        """Создаёт фабрику сессий.
+
+        Args:
+            engine: Движок БД.
+
+        Returns:
+            Фабрика async-сессий.
+        """
+        return create_session_factory(engine)
+
+    @provide(scope=Scope.REQUEST)
+    async def session(
+        self, session_factory: async_sessionmaker[AsyncSession]
+    ) -> AsyncIterator[AsyncSession]:
+        """Открывает сессию на время запроса или задачи.
+
+        Args:
+            session_factory: Фабрика сессий.
+
+        Yields:
+            Открытая async-сессия.
+        """
+        async with session_factory() as session:
+            yield session
+
+    repository = provide(
+        SQLAlchemyBookingRepository, scope=Scope.REQUEST, provides=BookingRepository
+    )
+
+
+def create_container() -> AsyncContainer:
+    """Создаёт DI-контейнер приложения.
+
+    Returns:
+        Асинхронный контейнер Dishka.
+    """
+    return make_async_container(AppProvider())
