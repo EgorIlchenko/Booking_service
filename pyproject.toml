@@ -51,6 +51,10 @@ ignore = [
     "RUF003", # то же в комментариях
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Тесты держим в едином async-стиле, даже где нет await.
+"tests/**" = ["RUF029"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
