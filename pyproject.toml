@@ -43,6 +43,11 @@ select = [
     "SIM", # flake8-simplify
     "RUF", # ruff-specific
 ]
+ignore = [
+    "RUF001", # неоднозначные юникод-символы (кириллица в строках)
+    "RUF002", # то же в докстрингах
+    "RUF003", # то же в комментариях
+]
 
 [tool.mypy]
 python_version = "3.12"
