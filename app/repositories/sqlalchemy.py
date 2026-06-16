@@ -1,5 +1,3 @@
-"""Реализация репозитория броней на async SQLAlchemy."""
-
 from collections.abc import Sequence
 from uuid import UUID
 
